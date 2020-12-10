@@ -15,7 +15,7 @@ import struct
 from collections import deque
 from socket import timeout as TimeoutException
 from typing import Tuple, Union
-from udp import UDPsocket
+from sample.udp import UDPsocket
 
 
 class socket(UDPsocket):

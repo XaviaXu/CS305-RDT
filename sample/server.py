@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import logging
-from rdt import socket
+from sample.rdt import socket
 
 
 SERVER_ADDR = '127.0.0.1'
