@@ -1,6 +1,10 @@
+from collections import deque
+
 from USocket import UnreliableSocket
 import threading
 import time
+# from util import RDTSegment
+from util.RDTSegment import RDTSegment
 
 
 class RDTSocket(UnreliableSocket):
@@ -66,7 +70,7 @@ class RDTSocket(UnreliableSocket):
 
     def recv(self, bufsize: int) -> bytes:
         """
-        Receive data from the socket. 
+        Receive data from the socket.
         The return value is a bytes object representing the data received. 
         The maximum amount of data to be received at once is specified by bufsize. 
         
@@ -74,11 +78,62 @@ class RDTSocket(UnreliableSocket):
         In other words, if someone else sends data to you from another address,
         it MUST NOT affect the data returned by this function.
         """
-        data = None
+        data = bytearray()
         assert self._recv_from, "Connection not established yet. Use recvfrom instead."
         #############################################################################
         # TODO: YOUR CODE HERE                                                      #
         #############################################################################
+
+        # needed:
+        # expected(From connection part)
+        # peer_address
+        buffer = deque(maxlen=bufsize)
+        expected = 0
+        ack = RDTSegment(seq_num=0, ack_num=expected, ack=True)
+        peer_addr = None
+        OOOseg = deque()
+        # 判定是否为peer
+        while True:
+            segment_raw, remote_addr = self.recvfrom(RDTSegment.SEGMENT_LEN)
+            # addr判断？
+            if remote_addr != peer_addr:
+                continue
+            segment = RDTSegment.parse(segment_raw)
+            if segment.seq_num == expected:
+                data.extend(segment.payload)
+                expected = (expected + segment.len) % RDTSegment.SEQ_NUM_BOUND
+                # 判断queue
+                flag = False
+                while len(buffer) != 0 and buffer[0].seq_num == expected:
+                    queue_seg = buffer.popleft()
+                    data.extend(queue_seg.payload)
+                    expected = (expected + queue_seg.len) % RDTSegment.SEQ_NUM_BOUND
+                    flag = True
+
+                if flag:
+                    OOOseg.popleft()
+                    if len(OOOseg)!=0:
+                        ack.SLE, ack.SRE = OOOseg[0]
+                ack.ack_num = expected
+                self.sendto(ack.encode(), remote_addr)
+            elif segment.seq_num > expected:
+                try:
+                    assert len(buffer)!=buffer.maxlen
+                    if len(OOOseg) == 0 or segment.seq_num!=OOOseg[-1][1]:
+                        buffer.extend(segment)
+                        OOOseg.extend((segment.seq_num,(segment.seq_num+segment.len))%RDTSegment.SEQ_NUM_BOUND)
+                        ack.SLE, ack.SRE = OOOseg[0]
+                        self.sendto(ack.encode(),remote_addr)
+                    else:
+                        buffer.extend(segment)
+                        OOOseg[-1][1] = (OOOseg[-1][1]+segment.len)%RDTSegment.SEQ_NUM_BOUND
+                        self.sendto(ack.encode(), remote_addr)
+                except AssertionError:
+                    print("buffer is full, ignore")
+
+
+
+            pass
 
         #############################################################################
         #                             END OF YOUR CODE                              #

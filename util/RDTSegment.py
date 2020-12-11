@@ -33,15 +33,25 @@ class RDTSegment:
     Size of sender's window     16
     """
 
+    HEADER_LEN = 6
+    MAX_PAYLOAD_LEN = 1440
+    SEGMENT_LEN = MAX_PAYLOAD_LEN + HEADER_LEN
+    SEQ_NUM_BOUND = 256
 
-    def __init__(self):
+    def __init__(self, seq_num: int, ack_num: int,
+                 syn: bool = False, fin: bool = False, ack: bool = False):
         self.syn = False
         self.fin = False
         self.ack = False
+        #self.sack = False
         # SEQ
         self.seq_num = 0
         # SEQACK
         self.ack_num = 0
+        #SACK
+        self.SLE = 0
+        self.SRE = 0
+
         self.len = 0
         self.checksum = 0
         self.payload = bytes(0)
