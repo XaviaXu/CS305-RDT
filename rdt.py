@@ -1,3 +1,5 @@
+import math
+import re
 from collections import deque
 
 from USocket import UnreliableSocket
@@ -5,6 +7,7 @@ import threading
 import time
 # from util import RDTSegment
 from util.RDTSegment import RDTSegment
+from util.timer import Timer
 
 
 class RDTSocket(UnreliableSocket):
@@ -28,6 +31,9 @@ class RDTSocket(UnreliableSocket):
         self._send_to = None
         self._recv_from = None
         self.debug = debug
+        self.WIN_SIZE = 4
+        self.TIME_LIMIT = 0.1
+        self.settimeout(100)
         #############################################################################
         # TODO: ADD YOUR NECESSARY ATTRIBUTES HERE
         #############################################################################
@@ -112,35 +118,31 @@ class RDTSocket(UnreliableSocket):
 
                 if flag:
                     OOOseg.popleft()
-                    if len(OOOseg)!=0:
+                    if len(OOOseg) != 0:
                         ack.SLE, ack.SRE = OOOseg[0]
                 ack.ack_num = expected
                 self.sendto(ack.encode(), remote_addr)
             elif segment.seq_num > expected:
                 try:
-                    assert len(buffer)!=buffer.maxlen
-                    if len(OOOseg) == 0 or segment.seq_num!=OOOseg[-1][1]:
+                    assert len(buffer) != buffer.maxlen
+                    if len(OOOseg) == 0 or segment.seq_num != OOOseg[-1][1]:
                         buffer.extend(segment)
-                        OOOseg.extend((segment.seq_num,(segment.seq_num+segment.len))%RDTSegment.SEQ_NUM_BOUND)
+                        OOOseg.extend((segment.seq_num, (segment.seq_num + segment.len)) % RDTSegment.SEQ_NUM_BOUND)
                         ack.SLE, ack.SRE = OOOseg[0]
-                        self.sendto(ack.encode(),remote_addr)
+                        self.sendto(ack.encode(), remote_addr)
                     else:
                         buffer.extend(segment)
-                        OOOseg[-1][1] = (OOOseg[-1][1]+segment.len)%RDTSegment.SEQ_NUM_BOUND
+                        OOOseg[-1][1] = (OOOseg[-1][1] + segment.len) % RDTSegment.SEQ_NUM_BOUND
                         self.sendto(ack.encode(), remote_addr)
                 except AssertionError:
                     print("buffer is full, ignore")
-
-
-
-            pass
 
         #############################################################################
         #                             END OF YOUR CODE                              #
         #############################################################################
         return data
 
-    def send(self, bytes: bytes):
+    def send(self, data: bytes):
         """
         Send data to the socket. 
         The socket must be connected to a remote socket, i.e. self._send_to must not be none.
@@ -149,7 +151,50 @@ class RDTSocket(UnreliableSocket):
         #############################################################################
         # TODO: YOUR CODE HERE                                                      #
         #############################################################################
-        raise NotImplementedError()
+
+        data_len = len(data)
+        pld_size = RDTSegment.MAX_PAYLOAD_LEN
+
+        pkt_list = []
+        pkt_len = int(math.ceil(float(data_len) / pld_size))
+        base = 0
+        nxt = 0
+        timer = Timer(self.TIME_LIMIT)
+
+        for i in range(pkt_len):
+            pkt_list.append(data[i * pld_size: i * (pld_size + 1)])
+
+        while base < pkt_len:
+            lim = min(base + self.WIN_SIZE, pkt_len)
+            while nxt < lim:
+                # send pkt[nxt]
+                # if nxt == pkt_len - 1: FIN = 1, break
+                fin = False
+                if nxt == pkt_len - 1:
+                    fin = True
+                seq = RDTSegment(payload=pkt_list[nxt], seq_num=nxt, ack_num=nxt, fin=fin, len=len(pkt_list[nxt]))
+                self.sendto(seq.encode(), self._send_to)
+                nxt += 1
+
+            if not timer.running():
+                timer.start()
+
+            while timer.running() and not timer.timeout():
+                segment_raw, remote_addr = self.recvfrom(RDTSegment.SEGMENT_LEN)
+                if remote_addr != self._recv_from:
+                    continue
+                segment = RDTSegment.parse(segment_raw)
+                # todo: if wrong checksum of segment: continue
+                if base <= segment.ack_num < lim:
+                    base = segment.ack_num + 1
+                    if nxt == base:
+                        nxt += 1
+                    break
+
+            if timer.timeout():
+                timer.stop()
+                nxt = base
+
         #############################################################################
         #                             END OF YOUR CODE                              #
         #############################################################################

@@ -38,23 +38,23 @@ class RDTSegment:
     SEGMENT_LEN = MAX_PAYLOAD_LEN + HEADER_LEN
     SEQ_NUM_BOUND = 256
 
-    def __init__(self, seq_num: int, ack_num: int,
-                 syn: bool = False, fin: bool = False, ack: bool = False):
-        self.syn = False
-        self.fin = False
-        self.ack = False
-        #self.sack = False
+    def __init__(self, seq_num: int, ack_num: int, syn: bool = False, fin: bool = False,
+                 ack: bool = False, payload: bytes = None, len: int = 0):
+        self.syn = syn
+        self.fin = fin
+        self.ack = ack
+        # self.sack = False
         # SEQ
-        self.seq_num = 0
+        self.seq_num = seq_num
         # SEQACK
-        self.ack_num = 0
-        #SACK
+        self.ack_num = ack_num
+        # SACK
         self.SLE = 0
         self.SRE = 0
 
         self.len = 0
         self.checksum = 0
-        self.payload = bytes(0)
+        self.payload = payload
 
     def encode(self) -> bytes:
         return bytes([])
