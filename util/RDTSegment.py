@@ -1,3 +1,4 @@
+import struct
 from typing import Union
 
 
@@ -39,11 +40,11 @@ class RDTSegment:
     SEQ_NUM_BOUND = 256
 
     def __init__(self, seq_num: int, ack_num: int, syn: bool = False, fin: bool = False,
-                 ack: bool = False, payload: bytes = None, len: int = 0):
+                 ack: bool = False, sack: int = 1, payload: bytes = None, len: int = 0):
         self.syn = syn
         self.fin = fin
         self.ack = ack
-        # self.sack = False
+        self.sack = sack
         # SEQ
         self.seq_num = seq_num
         # SEQACK
@@ -52,17 +53,49 @@ class RDTSegment:
         self.SLE = 0
         self.SRE = 0
 
-        self.len = 0
+        self.len = len
         self.checksum = 0
         self.payload = payload
 
     def encode(self) -> bytes:
-        return bytes([])
+        head = 0x0
+        if self.syn:
+            head |= 0x4
+        if self.fin:
+            head |= 0x2
+        if self.ack:
+            head |= 0x1
+        arr = bytearray(struct.pack('!BIIIH', head, self.seq_num, self.ack_num, self.len, 0))
+        if self.payload:
+            arr.extend(self.payload)
+        checksum = RDTSegment.calc_checksum(arr)
+        arr[13] = checksum >> 8
+        arr[14] = checksum & 0xFF
+        return bytes(arr)
+
+    #set SACK by hand
+    def setSACK(self, sack):
+        self.sack = sack
+
+
 
     @staticmethod
     def parse(segment: Union[bytes, bytearray]) -> 'RDTSegment':
-        return RDTSegment()
+        head, = struct.unpack('!B', segment[0:1])
+        syn = (head & 0x4) != 0
+        fin = (head & 0x2) != 0
+        ack = (head & 0x1) != 0
+        seq_num, ack_num, len, checksum = struct.unpack('IIIH', segment[1:15])
+        payload = segment[15:15+len]
+        return RDTSegment(seq_num, ack_num, syn, fin, ack, 1, payload, len)
 
     @staticmethod
     def calc_checksum(segment: Union[bytes, bytearray]) -> int:
-        return 0
+        i = iter(segment)
+        bytes_sum = sum(((a << 8) + b for a, b in zip(i, i)))  # for a, b: (s[0], s[1]), (s[2], s[3]), ...
+        if len(segment) % 2 == 1:  # pad zeros to form a 16-bit word for checksum
+            bytes_sum += segment[-1] << 8
+        # add the overflow at the end (adding twice is sufficient)
+        bytes_sum = (bytes_sum & 0xFFFF) + (bytes_sum >> 16)
+        bytes_sum = (bytes_sum & 0xFFFF) + (bytes_sum >> 16)
+        return ~bytes_sum & 0xFFFF
