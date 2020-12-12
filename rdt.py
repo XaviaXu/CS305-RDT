@@ -5,7 +5,6 @@ from collections import deque
 from USocket import UnreliableSocket
 import threading
 import time
-# from util import RDTSegment
 from util.RDTSegment import RDTSegment
 from util.timer import Timer
 
@@ -96,15 +95,15 @@ class RDTSocket(UnreliableSocket):
         buffer = deque(maxlen=bufsize)
         expected = 0
         ack = RDTSegment(seq_num=0, ack_num=expected, ack=True)
-        peer_addr = None
+        peer_addr = self._recv_from
         OOOseg = deque()
-        # 判定是否为peer
         while True:
             segment_raw, remote_addr = self.recvfrom(RDTSegment.SEGMENT_LEN)
             # addr判断？
-            if remote_addr != peer_addr:
-                continue
+            if remote_addr != peer_addr:continue
+            # todo: checkSum checking
             segment = RDTSegment.parse(segment_raw)
+            if segment.fin: break
             if segment.seq_num == expected:
                 data.extend(segment.payload)
                 expected = (expected + segment.len) % RDTSegment.SEQ_NUM_BOUND
@@ -120,6 +119,8 @@ class RDTSocket(UnreliableSocket):
                     OOOseg.popleft()
                     if len(OOOseg) != 0:
                         ack.SLE, ack.SRE = OOOseg[0]
+                    else:
+                        ack.SLE,ack.SRE = (-1, -1)
                 ack.ack_num = expected
                 self.sendto(ack.encode(), remote_addr)
             elif segment.seq_num > expected:
