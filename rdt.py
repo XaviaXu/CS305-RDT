@@ -1,10 +1,8 @@
 import math
-import re
 from collections import deque
+from socket import socket, AF_INET, SOCK_DGRAM
 
-from USocket import UnreliableSocket
-import threading
-import time
+from USocket import UnreliableSocket, sockets
 from util.RDTSegment import RDTSegment
 from util.timer import Timer
 
@@ -54,7 +52,9 @@ class RDTSocket(UnreliableSocket):
         #############################################################################
         # TODO: YOUR CODE HERE                                                      #
         #############################################################################
-
+        conn, addr = conn.accept()
+        self._recv_from = addr
+        self._send_to = addr
         #############################################################################
         #                             END OF YOUR CODE                              #
         #############################################################################
@@ -68,7 +68,9 @@ class RDTSocket(UnreliableSocket):
         #############################################################################
         # TODO: YOUR CODE HERE                                                      #
         #############################################################################
-        raise NotImplementedError()
+        sockets[id(self)].connect(address)
+        self._send_to = address
+        self._recv_from = address
         #############################################################################
         #                             END OF YOUR CODE                              #
         #############################################################################
@@ -120,7 +122,7 @@ class RDTSocket(UnreliableSocket):
                     if len(OOOseg) != 0:
                         ack.SLE, ack.SRE = OOOseg[0]
                     else:
-                        ack.SLE,ack.SRE = (-1, -1)
+                        ack.SLE, ack.SRE = (-1, -1)
                 ack.ack_num = expected
                 self.sendto(ack.encode(), remote_addr)
             elif segment.seq_num > expected:
@@ -213,12 +215,6 @@ class RDTSocket(UnreliableSocket):
         #                             END OF YOUR CODE                              #
         #############################################################################
         super().close()
-
-    def set_send_to(self, send_to):
-        self._send_to = send_to
-
-    def set_recv_from(self, recv_from):
-        self._recv_from = recv_from
 
 
 """
