@@ -62,7 +62,7 @@ class RDTSocket(UnreliableSocket):
                 data, address = self.recvfrom(RDTSegment.SEGMENT_LEN)
             except TypeError:
                 continue
-            print("receive accept")
+            print("receive accept at address: "+str(address))
             handShake = RDTSegment.parse(data)
             # if handShake.calc_checksum(data) != handShake.checksum or not handShake.syn:
             if not handShake.syn:
@@ -70,8 +70,9 @@ class RDTSocket(UnreliableSocket):
                 continue
             self.Ack = handShake.syn + 1
             handShake2 = RDTSegment(syn=True, seq_num=self.Seq, ack=True, ack_num=self.Ack)
+            print("ack: "+str(self.Ack))
             self.sendto(handShake2.encode(), address)
-            print("send syn at accept")
+            print("send syn at accept to address: "+str(address))
             # 接收确认地址？
             break
         conn, addr = RDTSocket(self._rate), address
@@ -110,8 +111,11 @@ class RDTSocket(UnreliableSocket):
             except TypeError:
                 time.sleep(1)
                 continue
+            print("recv data at address: "+str(address))
             handShake_2 = RDTSegment.parse(data)
-            if handShake_2.syn and handShake_2.ack and handShake_2.ack_num == self.Seq + 1:
+            # if handShake_2.syn and handShake_2.ack and handShake_2.ack_num == self.Seq + 1:
+            # todo: determine seq and ack in connection
+            if handShake_2.syn and handShake_2.ack:
                 print("receive syn ack correctly")
                 break
             else:
@@ -125,7 +129,7 @@ class RDTSocket(UnreliableSocket):
         self._recv_from = address
         self._send_to = address
 
-        raise NotImplementedError()
+
         #############################################################################
         #                             END OF YOUR CODE                              #
         #############################################################################
