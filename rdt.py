@@ -68,6 +68,7 @@ class RDTSocket(UnreliableSocket):
             if not handShake.syn:
                 print("checkSum/not SYN")
                 continue
+            self.setblocking(False)
             self.Ack = handShake.syn + 1
             handShake2 = RDTSegment(syn=True, seq_num=self.Seq, ack=True, ack_num=self.Ack)
             print("ack: "+str(self.Ack))
@@ -75,7 +76,7 @@ class RDTSocket(UnreliableSocket):
             print("send syn at accept to address: "+str(address))
             # 接收确认地址？
             break
-        conn, addr = RDTSocket(self._rate), address
+        conn, addr = self, address
         conn._send_to = address
         conn._recv_from = address
 
@@ -144,6 +145,15 @@ class RDTSocket(UnreliableSocket):
         In other words, if someone else sends data to you from another address,
         it MUST NOT affect the data returned by this function.
         """
+        #??
+        print("data in")
+        try:
+            data_uesless, addr_uesless = self.recvfrom(RDTSegment.SEGMENT_LEN)
+        except BlockingIOError:
+            pass
+        except TypeError:
+            pass
+        #??
         data = bytearray()
         assert self._recv_from, "Connection not established yet. Use recvfrom instead."
         #############################################################################
@@ -153,15 +163,19 @@ class RDTSocket(UnreliableSocket):
         # needed:
         # expected(From connection part)
         # peer_address
-        buffer = deque(maxlen=bufsize)
+        buffer = deque()
         expected = 0
         ack = RDTSegment(seq_num=0, ack_num=expected, ack=True)
-        peer_addr = self._recv_from
         OOOseg = deque()
         while True:
-            segment_raw, remote_addr = self.recvfrom(RDTSegment.SEGMENT_LEN)
+            try:
+                segment_raw, remote_addr = self.recvfrom(RDTSegment.SEGMENT_LEN)
+            except BlockingIOError:
+                continue
+
             # addr判断？
-            if remote_addr != peer_addr: continue
+            print("recv data")
+            if remote_addr != self._recv_from: continue
             # todo: checkSum checking
             segment = RDTSegment.parse(segment_raw)
             if segment.fin: break
@@ -236,13 +250,17 @@ class RDTSocket(UnreliableSocket):
                     fin = True
                 seq = RDTSegment(payload=pkt_list[nxt], seq_num=nxt, ack_num=nxt, fin=fin, len=len(pkt_list[nxt]))
                 self.sendto(seq.encode(), self._send_to)
+                print("send data to:"+str(self._send_to))
                 nxt += 1
 
             if not timer.running():
                 timer.start()
 
             while timer.running() and not timer.timeout():
-                segment_raw, remote_addr = self.recvfrom(RDTSegment.SEGMENT_LEN)
+                try:
+                    segment_raw, remote_addr = self.recvfrom(RDTSegment.SEGMENT_LEN)
+                except BlockingIOError:
+                    continue
                 if remote_addr != self._recv_from:
                     continue
                 segment = RDTSegment.parse(segment_raw)
