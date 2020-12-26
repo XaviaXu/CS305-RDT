@@ -26,6 +26,7 @@ class RDTSocket(UnreliableSocket):
 
     def __init__(self, rate=None, debug=True):
         super().__init__(rate=rate)
+        self.client = False
         self._rate = rate
         self._send_to = None
         self._recv_from = None
@@ -33,6 +34,9 @@ class RDTSocket(UnreliableSocket):
         self.WIN_SIZE = 4
         self.TIME_LIMIT = 0.1
         self.settimeout(100)
+        self.Seq = 0
+        self.Ack = 0
+
         #############################################################################
         # TODO: ADD YOUR NECESSARY ATTRIBUTES HERE
         #############################################################################
@@ -50,7 +54,28 @@ class RDTSocket(UnreliableSocket):
 
         This function should be blocking. 
         """
-        conn, addr = RDTSocket(self._rate), None
+        self.client = False
+        self.setblocking(True)
+        while True:
+            self.setblocking(True)
+            try:
+                data,address = self.recvfrom(RDTSegment.SEGMENT_LEN)
+            except TypeError:
+                continue
+            print("receive data")
+            handShake = RDTSegment.parse(data)
+            if handShake.calc_checksum() or not handShake.syn:
+                print("checkSum/not SYN")
+                continue
+            self.Ack = handShake.syn+1
+            handShake2 = RDTSegment(syn=True,seq_num= self.Seq,ack=True,ack_num=self.Ack)
+            self.sendto(handShake2.encode(),address)
+            print("send syn at accept")
+            #接收确认地址？
+            break
+        conn, addr = RDTSocket(self._rate), address
+        self._send_to = address
+        self._recv_from = address
         #############################################################################
         # TODO: YOUR CODE HERE                                                      #
         #############################################################################
@@ -68,6 +93,34 @@ class RDTSocket(UnreliableSocket):
         #############################################################################
         # TODO: YOUR CODE HERE                                                      #
         #############################################################################
+        self.client = True
+        self.setblocking(flag=False)
+        handShake_1 = RDTSegment(syn=True, seq_num=self.Seq,ack_num=self.Ack)
+        while True:
+            self.sendto(handShake_1.encode(), address)
+            time.sleep(1)
+            try:
+                data, addr_1 = self.recvfrom(RDTSegment.SEGMENT_LEN, )
+            except BlockingIOError:
+                time.sleep(1)
+                continue
+            except TypeError:
+                time.sleep(1)
+                continue
+            handShake_2 = RDTSegment.parse(data)
+            if handShake_2.syn and handShake_2.ack and handShake_2.ack_num == self.Seq + 1:
+                print("receive syn ack correctly")
+                break
+            else:
+                time.sleep(1)
+        self.Seq += 1
+        self.Ack = handShake_2.ack_num + 1
+        handShake_3 = RDTSegment(seq_num=self.Seq, ack_num=self.Ack, ack=True)
+        self.sendto(handShake_3.encode(), address)
+        # 重复确认？
+        self._recv_from = address
+        self._send_to = address
+
         raise NotImplementedError()
         #############################################################################
         #                             END OF YOUR CODE                              #
@@ -100,7 +153,7 @@ class RDTSocket(UnreliableSocket):
         while True:
             segment_raw, remote_addr = self.recvfrom(RDTSegment.SEGMENT_LEN)
             # addr判断？
-            if remote_addr != peer_addr:continue
+            if remote_addr != peer_addr: continue
             # todo: checkSum checking
             segment = RDTSegment.parse(segment_raw)
             if segment.fin: break
@@ -120,7 +173,7 @@ class RDTSocket(UnreliableSocket):
                     if len(OOOseg) != 0:
                         ack.SLE, ack.SRE = OOOseg[0]
                     else:
-                        ack.SLE,ack.SRE = (-1, -1)
+                        ack.SLE, ack.SRE = (-1, -1)
                 ack.ack_num = expected
                 self.sendto(ack.encode(), remote_addr)
             elif segment.seq_num > expected:
