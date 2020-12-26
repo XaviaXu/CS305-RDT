@@ -1,8 +1,10 @@
 import math
+import re
 from collections import deque
-from socket import socket, AF_INET, SOCK_DGRAM
 
-from USocket import UnreliableSocket, sockets
+from USocket import UnreliableSocket
+import threading
+import time
 from util.RDTSegment import RDTSegment
 from util.timer import Timer
 
@@ -24,6 +26,7 @@ class RDTSocket(UnreliableSocket):
 
     def __init__(self, rate=None, debug=True):
         super().__init__(rate=rate)
+        self.client = False
         self._rate = rate
         self._send_to = None
         self._recv_from = None
@@ -31,6 +34,9 @@ class RDTSocket(UnreliableSocket):
         self.WIN_SIZE = 4
         self.TIME_LIMIT = 0.1
         self.settimeout(100)
+        self.Seq = 0
+        self.Ack = 0
+
         #############################################################################
         # TODO: ADD YOUR NECESSARY ATTRIBUTES HERE
         #############################################################################
@@ -48,13 +54,35 @@ class RDTSocket(UnreliableSocket):
 
         This function should be blocking. 
         """
-        conn, addr = RDTSocket(self._rate), None
+        self.client = False
+        self.setblocking(True)
+        while True:
+            self.setblocking(True)
+            try:
+                data, address = self.recvfrom(RDTSegment.SEGMENT_LEN)
+            except TypeError:
+                continue
+            print("receive accept at address: "+str(address))
+            handShake = RDTSegment.parse(data)
+            # if handShake.calc_checksum(data) != handShake.checksum or not handShake.syn:
+            if not handShake.syn:
+                print("checkSum/not SYN")
+                continue
+            self.Ack = handShake.syn + 1
+            handShake2 = RDTSegment(syn=True, seq_num=self.Seq, ack=True, ack_num=self.Ack)
+            print("ack: "+str(self.Ack))
+            self.sendto(handShake2.encode(), address)
+            print("send syn at accept to address: "+str(address))
+            # 接收确认地址？
+            break
+        conn, addr = RDTSocket(self._rate), address
+        conn._send_to = address
+        conn._recv_from = address
+
         #############################################################################
         # TODO: YOUR CODE HERE                                                      #
         #############################################################################
-        conn, addr = conn.accept()
-        self._recv_from = addr
-        self._send_to = addr
+
         #############################################################################
         #                             END OF YOUR CODE                              #
         #############################################################################
@@ -68,9 +96,40 @@ class RDTSocket(UnreliableSocket):
         #############################################################################
         # TODO: YOUR CODE HERE                                                      #
         #############################################################################
-        sockets[id(self)].connect(address)
-        self._send_to = address
+        self.client = True
+        self.setblocking(flag=False)
+        handShake_1 = RDTSegment(syn=True, seq_num=self.Seq, ack_num=self.Ack)
+        while True:
+            self.sendto(handShake_1.encode(), address)
+            print("send first handshake")
+            time.sleep(1)
+            try:
+                data, addr_1 = self.recvfrom(RDTSegment.SEGMENT_LEN, )
+            except BlockingIOError:
+                time.sleep(1)
+                continue
+            except TypeError:
+                time.sleep(1)
+                continue
+            print("recv data at address: "+str(address))
+            handShake_2 = RDTSegment.parse(data)
+            # if handShake_2.syn and handShake_2.ack and handShake_2.ack_num == self.Seq + 1:
+            # todo: determine seq and ack in connection
+            if handShake_2.syn and handShake_2.ack:
+                print("receive syn ack correctly")
+                break
+            else:
+                time.sleep(1)
+        self.Seq += 1
+        self.Ack = handShake_2.ack_num + 1
+        handShake_3 = RDTSegment(seq_num=self.Seq, ack_num=self.Ack, ack=True)
+        self.sendto(handShake_3.encode(), address)
+        # 重复确认？
+        print("finish connect")
         self._recv_from = address
+        self._send_to = address
+
+
         #############################################################################
         #                             END OF YOUR CODE                              #
         #############################################################################
@@ -102,7 +161,7 @@ class RDTSocket(UnreliableSocket):
         while True:
             segment_raw, remote_addr = self.recvfrom(RDTSegment.SEGMENT_LEN)
             # addr判断？
-            if remote_addr != peer_addr:continue
+            if remote_addr != peer_addr: continue
             # todo: checkSum checking
             segment = RDTSegment.parse(segment_raw)
             if segment.fin: break
@@ -215,6 +274,12 @@ class RDTSocket(UnreliableSocket):
         #                             END OF YOUR CODE                              #
         #############################################################################
         super().close()
+
+    def set_send_to(self, send_to):
+        self._send_to = send_to
+
+    def set_recv_from(self, recv_from):
+        self._recv_from = recv_from
 
 
 """
