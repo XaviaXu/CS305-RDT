@@ -234,7 +234,7 @@ class RDTSocket(UnreliableSocket):
         timer = Timer(self.TIME_LIMIT)
 
         for i in range(pkt_len):
-            pkt_list.append(data[i * pld_size: i * (pld_size + 1)])
+            pkt_list.append(data[i * pld_size: (i+1) * pld_size])
 
         while base < pkt_len:
             lim = min(base + self.WIN_SIZE, pkt_len)
@@ -246,7 +246,7 @@ class RDTSocket(UnreliableSocket):
                     fin = True
                 seq = RDTSegment(payload=pkt_list[nxt], seq_num=nxt, ack_num=nxt, fin=fin, len=len(pkt_list[nxt]))
                 self.sendto(seq.encode(), self._send_to)
-                print("send data to:" + str(self._send_to))
+                print("send pkt:", fin, "payload:", pkt_list[nxt])
                 nxt += 1
 
             if not timer.running():
