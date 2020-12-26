@@ -1,0 +1,83 @@
+base: 0 send pkt: 0
+base: 0 send pkt: 1
+base: 0 send pkt: 2
+base: 0 send pkt: 3
+recv ack: 1
+base: 2 send pkt: 4
+base: 2 send pkt: 5
+recv ack: 2
+base: 3 send pkt: 6
+recv ack: 3
+base: 4 send pkt: 7
+recv ack: 4
+base: 5 send pkt: 8
+recv ack: 5
+base: 6 send pkt: 9
+recv ack: 6
+recv ack: 7
+recv ack: 8
+recv ack: 9
+recv data. seq:0 ack:0
+send to: seq: {} ack: {} 0 1
+recv data. seq:1 ack:1
+send to: seq: {} ack: {} 0 2
+recv data. seq:2 ack:2
+send to: seq: {} ack: {} 0 3
+recv data. seq:3 ack:3
+send to: seq: {} ack: {} 0 4
+recv data. seq:4 ack:4
+send to: seq: {} ack: {} 0 5
+recv data. seq:5 ack:5
+send to: seq: {} ack: {} 0 6
+recv data. seq:6 ack:6
+send to: seq: {} ack: {} 0 7
+recv data. seq:7 ack:7
+send to: seq: {} ack: {} 0 8
+recv data. seq:8 ack:8
+
+
+base: 0 send pkt: 0
+base: 0 send pkt: 1
+base: 0 send pkt: 2
+base: 0 send pkt: 3
+recv ack: 0
+base: 1 send pkt: 4
+recv ack: 0
+recv ack: 0
+recv ack: 0
+base: 1 send pkt: 1
+base: 1 send pkt: 2
+base: 1 send pkt: 3
+base: 1 send pkt: 4
+recv ack: 0
+recv ack: 0
+recv ack: 0
+recv ack: 0
+base: 1 send pkt: 1
+base: 1 send pkt: 2
+base: 1 send pkt: 3
+base: 1 send pkt: 4
+recv ack: 0
+recv ack: 0
+recv ack: 0
+recv ack: 0
+base: 1 send pkt: 1
+base: 1 send pkt: 2
+base: 1 send pkt: 3
+base: 1 send pkt: 4
+recv ack: 0
+recv ack: 0
+recv ack: 0
+recv ack: 0
+base: 1 send pkt: 1
+base: 1 send pkt: 2
+base: 1 send pkt: 3
+base: 1 send pkt: 4
+recv ack: 0
+recv ack: 0
+recv ack: 0
+recv ack: 0
+base: 1 send pkt: 1
+base: 1 send pkt: 2
+base: 1 send pkt: 3
+base: 1 send pkt: 4

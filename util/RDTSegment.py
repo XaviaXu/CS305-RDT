@@ -35,7 +35,7 @@ class RDTSegment:
     """
 
     HEADER_LEN = 6
-    MAX_PAYLOAD_LEN = 1440
+    MAX_PAYLOAD_LEN = 440
     SEGMENT_LEN = MAX_PAYLOAD_LEN + HEADER_LEN
     SEQ_NUM_BOUND = 256
 
@@ -85,7 +85,7 @@ class RDTSegment:
         syn = (head & 0x4) != 0
         fin = (head & 0x2) != 0
         ack = (head & 0x1) != 0
-        seq_num, ack_num, len, checksum = struct.unpack('IIIH', segment[1:15])
+        seq_num, ack_num, len, checksum = struct.unpack('!IIIH', segment[1:15])
         payload = segment[15:15+len]
         return RDTSegment(seq_num, ack_num, syn, fin, ack, 1, payload, len)
 

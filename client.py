@@ -9,9 +9,9 @@ if __name__=='__main__':
     client.connect(('127.0.0.1', 9999))
 
     echo = b''
-    count = 5
-    slice_size = 2048
-    blocking_send = True
+    count = 1
+    slice_size = 4096
+    blocking_send = False
 
     with open('alice.txt', 'r') as f:
         data = f.read()
@@ -27,12 +27,18 @@ if __name__=='__main__':
         slices = [encoded[i*slice_size:i*slice_size+slice_size] for i in range(len(encoded)//slice_size+1)]
         assert sum([len(slice) for slice in slices])==len(encoded)
 
+        # slices.append(slices[-1])
         start = time.perf_counter()
         for i in range(count): # send 'alice.txt' for count times
             for slice in slices:
                 client.send(slice)
                 reply = client.recv(slice_size)
                 echo += reply
+
+        # time.sleep(10)
+        # client.send(slices[-1])
+        # reply = client.recv(slice_size)
+
     else:
         print('transmit in mode B')
         start = time.perf_counter()
@@ -43,7 +49,7 @@ if __name__=='__main__':
                 echo += reply
 
     client.close()
-
+    exit(0)
     '''
     make sure the following is reachable
     '''

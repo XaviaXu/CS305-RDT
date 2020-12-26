@@ -12,7 +12,8 @@ if __name__=='__main__':
         conn, client_addr = server.accept()
         start = time.perf_counter()
         while True:
-            data = conn.recv(2048)
+            data = conn.recv(4096)
+            print(data)
             if data:
                 conn.send(data)
             else:
