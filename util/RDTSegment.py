@@ -17,6 +17,8 @@ class RDTSegment:
     /                                                                    /
     +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+----+
 
+    bytes: [(0..GFIN,SYN,FIN,ACK),SEQ,
+
     Protocol Version:           1
 
     Flags:
@@ -40,7 +42,8 @@ class RDTSegment:
     SEQ_NUM_BOUND = 256
 
     def __init__(self, seq_num: int, ack_num: int, syn: bool = False, fin: bool = False,
-                 ack: bool = False, sack: int = 1, payload: bytes = None, len: int = 0):
+                 ack: bool = False, sack: int = 1, payload: bytes = None, len: int = 0,
+                 gfin: bool = False):
         self.syn = syn
         self.fin = fin
         self.ack = ack
@@ -52,6 +55,8 @@ class RDTSegment:
         # SACK
         self.SLE = 0
         self.SRE = 0
+        #Global
+        self.gfin = gfin
 
         self.len = len
         self.checksum = 0
@@ -59,6 +64,8 @@ class RDTSegment:
 
     def encode(self) -> bytes:
         head = 0x0
+        if self.gfin:
+            head |= 0x8
         if self.syn:
             head |= 0x4
         if self.fin:
@@ -80,12 +87,13 @@ class RDTSegment:
     @staticmethod
     def parse(segment: Union[bytes, bytearray]) -> 'RDTSegment':
         head, = struct.unpack('!B', segment[0:1])
+        gfin = (head & 0x8) != 0
         syn = (head & 0x4) != 0
         fin = (head & 0x2) != 0
         ack = (head & 0x1) != 0
         seq_num, ack_num, len, checksum = struct.unpack('!IIIH', segment[1:15])
         payload = segment[15:15+len]
-        return RDTSegment(seq_num, ack_num, syn, fin, ack, 1, payload, len)
+        return RDTSegment(seq_num, ack_num, syn, fin, ack, 1, payload, len, gfin)
 
     @staticmethod
     def calc_checksum(segment: Union[bytes, bytearray]) -> int:
@@ -97,3 +105,10 @@ class RDTSegment:
         bytes_sum = (bytes_sum & 0xFFFF) + (bytes_sum >> 16)
         bytes_sum = (bytes_sum & 0xFFFF) + (bytes_sum >> 16)
         return ~bytes_sum & 0xFFFF
+
+    @staticmethod
+    def check_checksum(segment, segment_raw):
+        checksum = struct.unpack('!H', segment_raw[13:15])
+        test = segment.encode()
+        testsum = struct.unpack('!H', test[13:15])
+        return testsum != checksum

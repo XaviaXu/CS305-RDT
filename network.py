@@ -13,13 +13,22 @@ def bytes_to_addr(bytes):
 def addr_to_bytes(addr):
     return inet_aton(addr[0]) + addr[1].to_bytes(4, 'big')
 
+# corrupt:
+def corrupt(data: bytes) -> bytes:
+    raw = list(data)
+    for _ in range(0, random.randint(0, 3)):
+        pos = random.randint(0, len(raw) - 1)
+        raw[pos] = random.randint(0, 255)
+    return bytes(raw)
+
 
 class Server(ThreadingUDPServer):
-    def __init__(self, addr, rate=None, delay=None):
+    def __init__(self, addr, rate=None, delay=None, corrupt=None):
         super().__init__(addr, None)
         self.rate = rate
         self.buffer = 0
         self.delay = delay
+        self.corrupt = corrupt
 
     def verify_request(self, request, client_address):
         """
@@ -61,6 +70,8 @@ class Server(ThreadingUDPServer):
         for example:
         time.sleep(random.random())
         """
+
+        time.sleep(random.random()/5)
 
         to = bytes_to_addr(data[:8])
         print(client_address, to)  # observe tht traffic
