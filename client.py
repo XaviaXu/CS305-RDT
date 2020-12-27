@@ -44,9 +44,12 @@ if __name__=='__main__':
         start = time.perf_counter()
         for i in range(count):
             client.send(encoded)
-            while len(echo) < len(encoded)*(i+1):
-                reply = client.recv(slice_size)
-                echo += reply
+            # while len(echo) < len(encoded)*(i+1):
+            #     reply = client.recv(slice_size)
+            #     echo += reply
+
+            reply = client.recv(slice_size)
+            echo += reply
 
     client.close()
     # exit(0)
