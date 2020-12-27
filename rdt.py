@@ -32,7 +32,7 @@ class RDTSocket(UnreliableSocket):
         self._recv_from = None
         self.debug = debug
         self.WIN_SIZE = 4
-        self.TIME_LIMIT = 0.1
+        self.TIME_LIMIT = 2
         self.settimeout(100)
         self.Seq = 0
         self.Ack = 100
@@ -295,15 +295,16 @@ class RDTSocket(UnreliableSocket):
                 segment = RDTSegment.parse(segment_raw)
                 print("sender recv, ack:", segment.ack_num, "fin:", pkt_len - 1)
                 # todo: if wrong checksum of segment: continue
-                if segment.ack_num == pkt_len:
-                    finished = True
-                    break
                 if base <= segment.ack_num - 1 < lim:
                     base = segment.ack_num
+                    # if segment.ack_num == pkt_len:
+                    #     finished = True
+                    #     break
+                    timer.stop()
                     break
 
-            if finished:
-                return
+            # if finished:
+            #     return
 
             if timer.timeout():
                 timer.stop()

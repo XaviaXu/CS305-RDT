@@ -77,8 +77,6 @@ class RDTSegment:
     def setSACK(self, sack):
         self.sack = sack
 
-
-
     @staticmethod
     def parse(segment: Union[bytes, bytearray]) -> 'RDTSegment':
         head, = struct.unpack('!B', segment[0:1])

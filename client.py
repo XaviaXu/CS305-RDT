@@ -49,7 +49,7 @@ if __name__=='__main__':
                 echo += reply
 
     client.close()
-    exit(0)
+    # exit(0)
     '''
     make sure the following is reachable
     '''
