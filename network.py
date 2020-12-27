@@ -71,6 +71,8 @@ class Server(ThreadingUDPServer):
         time.sleep(random.random())
         """
 
+        time.sleep(random.random()/5)
+
         to = bytes_to_addr(data[:8])
         print(client_address, to)  # observe tht traffic
         socket.sendto(addr_to_bytes(client_address) + data[8:], to)

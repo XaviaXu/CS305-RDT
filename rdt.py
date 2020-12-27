@@ -180,7 +180,7 @@ class RDTSocket(UnreliableSocket):
         # peer_address
         buffer = []
         expected = 0
-        ack = RDTSegment(seq_num=0, ack_num=expected, ack=True)
+        ack = RDTSegment(seq_num=expected, ack_num=expected, ack=True)
         OOOseg = []
         while True:
             try:
@@ -194,17 +194,19 @@ class RDTSocket(UnreliableSocket):
             # todo: checkSum checking
             segment = RDTSegment.parse(segment_raw)
             print("receiver recv, seq:" + str(segment.seq_num))
-            if segment.fin:
-                ack.ack_num = segment.seq_num + 1
-                self.sendto(ack.encode(), remote_addr)
-                data.extend(segment.payload)
-                print("receiver send, ack:", ack.ack_num)
-                print("recv FIN pkt")
-                break
+
             if segment.syn: continue
             if segment.seq_num == expected:
                 data.extend(segment.payload)
                 expected = expected + 1
+                if segment.fin:
+                    ack.ack_num = segment.seq_num + 1
+                    ack.seq_num = ack.ack_num
+                    self.sendto(ack.encode(), remote_addr)
+
+                    print("receiver send, ack:", ack.ack_num)
+                    print("recv FIN pkt")
+                    break
 
                 # flag = False
                 while len(buffer) != 0 and buffer[0].seq_num == expected:
@@ -221,6 +223,7 @@ class RDTSocket(UnreliableSocket):
                 #     else:
                 #         ack.SLE, ack.SRE = (-1, -1)
                 ack.ack_num = expected
+                ack.seq_num = ack.ack_num
                 self.sendto(ack.encode(), remote_addr)
                 print("receiver send, ack:", ack.ack_num)
             elif segment.seq_num > expected:
@@ -230,18 +233,7 @@ class RDTSocket(UnreliableSocket):
                 print("recv out-of-order segment,recv:",segment.seq_num,"expected:",expected)
                 print("receiver send, ack:", ack.ack_num)
 
-                # if len(OOOseg) == 0 or segment.seq_num != OOOseg[-1][1]:
-                #     buffer.append(segment)
-                #     OOOseg.append((segment.seq_num, (segment.seq_num + segment.len) % RDTSegment.SEQ_NUM_BOUND))
-                #     temp = OOOseg[0]
-                #     (ack.SLE, ack.SRE) = OOOseg[0]
-                #
-                # else:
-                #     buffer.append(segment)
-                #     OOOseg[-1][1] = (OOOseg[-1][1] + segment.len) % RDTSegment.SEQ_NUM_BOUND
-                #     self.sendto(ack.encode(), remote_addr)
-                #     print("receiver send, ack: ", ack.ack_num)
-                # pass
+
 
         #############################################################################
         #                             END OF YOUR CODE                              #
@@ -300,15 +292,15 @@ class RDTSocket(UnreliableSocket):
                 segment = RDTSegment.parse(segment_raw)
                 print("sender recv, ack:", segment.ack_num, "fin:", pkt_len - 1)
                 # todo: if wrong checksum of segment: continue
-                if segment.ack_num == pkt_len:
-                    finished = True
-                    break
+                # if segment.ack_num == pkt_len:
+                #     finished = True
+                #     break
                 if base <= segment.ack_num - 1 < lim:
                     base = segment.ack_num
                     break
 
-            if finished:
-                return
+            # if finished:
+            #     return
 
             if timer.timeout():
                 timer.stop()
