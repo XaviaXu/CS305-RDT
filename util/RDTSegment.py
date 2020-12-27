@@ -107,3 +107,10 @@ class RDTSegment:
         bytes_sum = (bytes_sum & 0xFFFF) + (bytes_sum >> 16)
         bytes_sum = (bytes_sum & 0xFFFF) + (bytes_sum >> 16)
         return ~bytes_sum & 0xFFFF
+
+    @staticmethod
+    def check_checksum(segment, segment_raw):
+        checksum = struct.unpack('!H', segment_raw[12:15])
+        test = segment.encode()
+        testsum = struct.unpack('!H', test[12:15])
+        return testsum != checksum

@@ -194,8 +194,7 @@ class RDTSocket(UnreliableSocket):
             if remote_addr != self._recv_from: continue
             # todo: checkSum checking
             segment = RDTSegment.parse(segment_raw)
-            checksum = struct.unpack('!H', segment_raw[12:15])
-            if segment.checksum != checksum: continue
+            if RDTSegment.check_checksum(segment, segment_raw): continue
             print("receiver recv, seq:" + str(segment.seq_num))
             if segment.fin:
                 ack.ack_num = segment.seq_num + 1
