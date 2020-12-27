@@ -1,5 +1,6 @@
 import math
 import re
+import struct
 from collections import deque
 
 from USocket import UnreliableSocket
@@ -64,12 +65,12 @@ class RDTSocket(UnreliableSocket):
                 continue
             print("receive accept at address: " + str(address))
             handShake = RDTSegment.parse(data)
-            print("accept seq:"+str(handShake.seq_num)+" ack:"+str(handShake.ack_num))
+            print("accept seq:" + str(handShake.seq_num) + " ack:" + str(handShake.ack_num))
             # if handShake.calc_checksum(data) != handShake.checksum or not handShake.syn:
             if not handShake.syn:
                 print("checkSum/not SYN")
                 continue
-            #TODO: CHECK CHECKSUM
+            # TODO: CHECK CHECKSUM
 
             # elif RDTSegment.calc_checksum(data)!=handShake.checksum:
             #     print(RDTSegment.calc_checksum(data))
@@ -82,9 +83,10 @@ class RDTSocket(UnreliableSocket):
             self.Seq = handShake.ack_num
             send_addr = sock.getsockname()
             payload = send_addr[0] + ':' + str(send_addr[1])
-            handShake2 = RDTSegment(syn=True, seq_num=self.Seq, ack=True, ack_num=self.Ack, payload=payload.encode(), len=len(payload.encode()))
+            handShake2 = RDTSegment(syn=True, seq_num=self.Seq, ack=True, ack_num=self.Ack, payload=payload.encode(),
+                                    len=len(payload.encode()))
             # print(len(handShake2.payload))
-            print("send ack: " + str(self.Ack)+"  seq:"+str(self.Seq))
+            print("send ack: " + str(self.Ack) + "  seq:" + str(self.Seq))
             self.sendto(handShake2.encode(), address)
             print("send syn at accept to address: " + str(address))
             conn, addr = sock, address
@@ -113,7 +115,7 @@ class RDTSocket(UnreliableSocket):
         self.client = True
         self.setblocking(flag=False)
         handShake_1 = RDTSegment(syn=True, seq_num=self.Seq, ack_num=self.Ack)
-        print("send handshake1. seq:"+str(self.Seq)+" ack:"+str(self.Ack))
+        print("send handshake1. seq:" + str(self.Seq) + " ack:" + str(self.Ack))
         while True:
             self.sendto(handShake_1.encode(), address)
             print("send first handshake")
@@ -132,7 +134,7 @@ class RDTSocket(UnreliableSocket):
             addr_str = handShake_2.payload.decode().split(':')
             address = (addr_str[0], int(addr_str[1]))
 
-            print("recv seq:" + str(handShake_2.seq_num)+" ack:"+str(handShake_2.ack_num))
+            print("recv seq:" + str(handShake_2.seq_num) + " ack:" + str(handShake_2.ack_num))
             # if handShake_2.syn and handShake_2.ack and handShake_2.ack_num == self.Seq + 1:
             # todo: determine seq and ack in connection
             if handShake_2.syn and handShake_2.ack:
@@ -145,7 +147,7 @@ class RDTSocket(UnreliableSocket):
 
         self.Ack = handShake_2.seq_num + 1
         self.Seq = handShake_2.ack_num
-        handShake_3 = RDTSegment(seq_num=self.Seq, ack_num=self.Ack, ack=True,syn=True)
+        handShake_3 = RDTSegment(seq_num=self.Seq, ack_num=self.Ack, ack=True, syn=True)
         print("send handshake3. seq:" + str(self.Seq) + " ack:" + str(self.Ack))
         self.sendto(handShake_3.encode(), address)
         # 重复确认？
@@ -168,8 +170,6 @@ class RDTSocket(UnreliableSocket):
         it MUST NOT affect the data returned by this function.
         """
 
-
-
         data = bytearray()
         assert self._recv_from, "Connection not established yet. Use recvfrom instead."
         #############################################################################
@@ -185,7 +185,7 @@ class RDTSocket(UnreliableSocket):
         OOOseg = []
         while True:
             try:
-                segment_raw, remote_addr = self.recvfrom(100*RDTSegment.SEGMENT_LEN)
+                segment_raw, remote_addr = self.recvfrom(100 * RDTSegment.SEGMENT_LEN)
             except BlockingIOError:
                 continue
 
@@ -194,24 +194,26 @@ class RDTSocket(UnreliableSocket):
             if remote_addr != self._recv_from: continue
             # todo: checkSum checking
             segment = RDTSegment.parse(segment_raw)
-            print("receiver recv, seq:"+str(segment.seq_num))
+            checksum = struct.unpack('!H', segment_raw[12:15])
+            if segment.checksum != checksum: continue
+            print("receiver recv, seq:" + str(segment.seq_num))
             if segment.fin:
-                ack.ack_num = segment.seq_num+1
+                ack.ack_num = segment.seq_num + 1
                 self.sendto(ack.encode(), remote_addr)
                 data.extend(segment.payload)
                 print("receiver send, ack: ", ack.ack_num)
                 break
-            if segment.syn:continue
+            if segment.syn: continue
             if segment.seq_num == expected:
                 data.extend(segment.payload)
-                expected = expected+1
+                expected = expected + 1
                 # 判断queue
                 flag = False
                 while len(buffer) != 0 and buffer[0].seq_num == expected:
                     queue_seg = buffer[0]
                     buffer.pop(0)
                     data.extend(queue_seg.payload)
-                    expected +=1
+                    expected += 1
                     flag = True
 
                 if flag:
@@ -263,7 +265,7 @@ class RDTSocket(UnreliableSocket):
         timer = Timer(self.TIME_LIMIT)
 
         for i in range(pkt_len):
-            pkt_list.append(data[i * pld_size: (i+1) * pld_size])
+            pkt_list.append(data[i * pld_size: (i + 1) * pld_size])
 
         finished = False
         while base < pkt_len:
@@ -321,7 +323,7 @@ class RDTSocket(UnreliableSocket):
         #############################################################################
         # TODO: YOUR CODE HERE                                                      #
         #############################################################################
-        finpkt = RDTSegment(fin=True,seq_num=0,ack_num=0)
+        finpkt = RDTSegment(fin=True, seq_num=0, ack_num=0)
         self.sendto(finpkt.encode(), self._send_to)
         #############################################################################
         #                             END OF YOUR CODE                              #
