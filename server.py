@@ -9,6 +9,7 @@ if __name__=='__main__':
     # server.listen(0) # check what python socket does
 
     while True:
+        print(type(server))
         conn, client_addr = server.accept()
         start = time.perf_counter()
         while True:
