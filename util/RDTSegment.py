@@ -111,4 +111,4 @@ class RDTSegment:
         checksum = struct.unpack('!H', segment_raw[13:15])
         test = segment.encode()
         testsum = struct.unpack('!H', test[13:15])
-        return testsum != checksum
+        return testsum == checksum

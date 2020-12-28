@@ -29,7 +29,7 @@ class Server(ThreadingUDPServer):
         self.buffer = 0
         self.delay = delay
         self.corrupt = corrupt
-        self.corrupt_rate = RDTSegment.SEGMENT_LEN*5*0.00001
+        self.corrupt_rate = 0.00001
 
     def verify_request(self, request, client_address):
         """
@@ -74,6 +74,15 @@ class Server(ThreadingUDPServer):
 
         # random delay
         time.sleep(random.random()/5)
+        # corrupt
+        for i in range(len(data)-1):
+            if random.random() < self.corrupt_rate:
+                data = data[:i] + (data[i] + 1).to_bytes(1, 'big') + data[i+1:]
+
+
+
+
+
 
         to = bytes_to_addr(data[:8])
         print(client_address, to)  # observe tht traffic

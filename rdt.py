@@ -207,10 +207,11 @@ class RDTSocket(UnreliableSocket):
             if remote_addr != self._recv_from: continue
 
             # todo: checkSum checking
-            #todo: check gfin
             segment = RDTSegment.parse(segment_raw)
             print("receiver recv, seq:" + str(segment.seq_num))
-
+            if not RDTSegment.check_checksum(segment,segment_raw):
+                print("bit error occurs")
+                continue
             if segment.gfin:
                 print("recv global fin")
                 ack.ack_num = segment.seq_num+1
@@ -302,8 +303,10 @@ class RDTSocket(UnreliableSocket):
             pkt_list.append(data[i * pld_size: (i + 1) * pld_size])
 
         finished = False
+        max_lim = 0
         while base < pkt_len:
             lim = min(base + self.cwnd, pkt_len)
+            max_lim = max(max_lim, lim)
             while nxt < lim:
                 # send pkt[nxt]
                 # if nxt == pkt_len - 1: FIN = 1, break
@@ -331,6 +334,8 @@ class RDTSocket(UnreliableSocket):
                 # if remote_addr != self._recv_from:
                 #     continue
                 segment = RDTSegment.parse(segment_raw)
+                if not RDTSegment.check_checksum(segment,segment_raw):
+                    continue
                 if self.cwnd <= self.sst:
                     self.cwnd += 1
                 else:
@@ -340,7 +345,7 @@ class RDTSocket(UnreliableSocket):
                 # if segment.ack_num == pkt_len:
                 #     finished = True
                 #     break
-                if base <= segment.ack_num - 1 < lim:
+                if base <= segment.ack_num - 1 < max_lim:
                     base = segment.ack_num
                     timer.stop()
                     break
@@ -384,6 +389,8 @@ class RDTSocket(UnreliableSocket):
                         continue
                     #TODO: ADD CHECKSUM CHECK
                     data = RDTSegment.parse(data_raw)
+                    if not RDTSegment.check_checksum(data,data_raw):
+                        continue
                     if data.ack_num==finpkt.seq_num+1 and data.ack:
                         print("recv fourth handshake")
                         timer.stop()
@@ -409,6 +416,8 @@ class RDTSocket(UnreliableSocket):
                         continue
                     #TODO: ADD CHECKSUM CHECK
                     data = RDTSegment.parse(data_raw)
+                    if not RDTSegment.check_checksum(data,data_raw):
+                        continue
                     if data.gfin:
                         print("recv third handshake")
                         timer.stop()
