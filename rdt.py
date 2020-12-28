@@ -37,6 +37,7 @@ class RDTSocket(UnreliableSocket):
         self.settimeout(100)
         self.Seq = 0
         self.Ack = 100
+        self.recv_close = False
 
         #############################################################################
         # TODO: ADD YOUR NECESSARY ATTRIBUTES HERE
@@ -91,13 +92,14 @@ class RDTSocket(UnreliableSocket):
             self.sendto(handShake2.encode(), address)
             #adding: 3rd handshake timeout
             time.sleep(1)
-            while True:
-                try:
-                    data, addr_1 = self.recvfrom(100 * RDTSegment.SEGMENT_LEN)
-                except BlockingIOError:
-                    self.sendto(handShake2.encode(), address)
-                    time.sleep(1)
-                    continue
+            # while True:
+            #     try:
+            #         data, addr_1 = self.recvfrom(100 * RDTSegment.SEGMENT_LEN)
+            #     except BlockingIOError:
+            #         self.sendto(handShake2.encode(), address)
+            #         time.sleep(1)
+            #         continue
+            #     break
             print("send syn at accept to address: " + str(address))
             conn, addr = sock, address
             conn._send_to = address
@@ -203,14 +205,23 @@ class RDTSocket(UnreliableSocket):
             # addr判断？
             # print("recv data")
             if remote_addr != self._recv_from: continue
+
             # todo: checkSum checking
+            #todo: check gfin
             segment = RDTSegment.parse(segment_raw)
             print("receiver recv, seq:" + str(segment.seq_num))
 
-            if segment.syn: continue
+            if segment.gfin:
+                print("recv global fin")
+                ack.ack_num = segment.seq_num+1
+                ack.seq_num = segment.seq_num+1
+                self.sendto(ack.encode(),self._send_to)
+                print("send second handshake")
+                self.recv_close = True
+                return data
             if segment.seq_num == expected:
                 data.extend(segment.payload)
-                print(segment.payload.decode())
+                # print(segment.payload.decode())
                 expected = expected + 1
                 if segment.fin:
                     ack.ack_num = expected
@@ -226,7 +237,7 @@ class RDTSocket(UnreliableSocket):
                     queue_seg = buffer[0]
                     buffer.pop(0)
                     data.extend(queue_seg.payload)
-                    print(segment.payload.decode())
+                    # print(segment.payload.decode())
                     expected += 1
                     print("add out-of-order pkt.seq:",queue_seg.seq_num,"expected",expected)
                     if queue_seg.fin:
@@ -300,7 +311,7 @@ class RDTSocket(UnreliableSocket):
                 if nxt == pkt_len - 1:
                     fin = True
                 seq = RDTSegment(payload=pkt_list[nxt], seq_num=nxt, ack_num=nxt, fin=fin, len=len(pkt_list[nxt]))
-                print(pkt_list[nxt].decode())
+                # print(pkt_list[nxt].decode())
                 self.sendto(seq.encode(), self._send_to)
                 # tmp = seq.encode()
                 # detmp = RDTSegment.parse(tmp)
@@ -355,11 +366,73 @@ class RDTSocket(UnreliableSocket):
         #############################################################################
         # TODO: YOUR CODE HERE                                                      #
         #############################################################################
-        finpkt = RDTSegment(fin=True, seq_num=0, ack_num=0)
-        self.sendto(finpkt.encode(), self._send_to)
+        # finpkt = RDTSegment(fin=True, seq_num=0, ack_num=0)
+        # self.sendto(finpkt.encode(), self._send_to)
+        if self.recv_close:
+            print("close passively")
+            finpkt = RDTSegment(fin=True,gfin=True,seq_num=10,ack_num=10)
+            timer = Timer(self.TIME_LIMIT)
+            while True:
+                print("send third handshake")
+                self.sendto(finpkt.encode(), self._send_to)
+                timer.start()
+                while timer.running() and not timer.timeout():
+                    print("timer running")
+                    try:
+                        data_raw, addr = self.recvfrom(100*RDTSegment.SEGMENT_LEN)
+                    except BlockingIOError:
+                        continue
+                    #TODO: ADD CHECKSUM CHECK
+                    data = RDTSegment.parse(data_raw)
+                    if data.ack_num==finpkt.seq_num+1 and data.ack:
+                        print("recv fourth handshake")
+                        timer.stop()
+                if not timer.timeout() and not timer.running():
+                    break
+                if timer.timeout():
+                    timer.stop()
+        else:
+            print("close actively")
+            #首次提出关闭请求
+            finpkt = RDTSegment(gfin=True,fin=True,seq_num=0,ack_num=0)
+
+            timer = Timer(self.TIME_LIMIT)
+            while True:
+                self.sendto(finpkt.encode(),self._send_to)
+                print("send first handshake")
+                timer.start()
+                while timer.running() and not timer.timeout():
+                    try:
+                        data_raw, addr = self.recvfrom(100*RDTSegment.SEGMENT_LEN)
+                    except BlockingIOError:
+                        continue
+                    #TODO: ADD CHECKSUM CHECK
+                    data = RDTSegment.parse(data_raw)
+                    if data.gfin:
+                        print("recv third handshake")
+                        timer.stop()
+                if not timer.timeout() and not timer.running():
+                    finpkt4 = RDTSegment(ack=True, ack_num=data.seq_num + 1, seq_num=data.seq_num + 1)
+                    break
+                if timer.timeout():
+                    print("time out, retransmit first handshake")
+                    timer.stop()
+
+            self.sendto(finpkt4.encode(),self._send_to)
+            timer_close = Timer(2*self.TIME_LIMIT)
+            timer_close.start()
+
+            while not timer_close.timeout():
+                try:
+                    data_raw,addr = self.recvfrom(100*RDTSegment.SEGMENT_LEN)
+                except BlockingIOError:
+                    continue
+                self.sendto(finpkt4.encode(), self._send_to)
+
         #############################################################################
         #                             END OF YOUR CODE                              #
         #############################################################################
+        print("close connection")
         super().close()
 
     def set_send_to(self, send_to):
