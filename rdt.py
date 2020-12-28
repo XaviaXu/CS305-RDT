@@ -89,6 +89,15 @@ class RDTSocket(UnreliableSocket):
             # print(len(handShake2.payload))
             print("send ack: " + str(self.Ack) + "  seq:" + str(self.Seq))
             self.sendto(handShake2.encode(), address)
+            #adding: 3rd handshake timeout
+            time.sleep(1)
+            while True:
+                try:
+                    data, addr_1 = self.recvfrom(100 * RDTSegment.SEGMENT_LEN)
+                except BlockingIOError:
+                    self.sendto(handShake2.encode(), address)
+                    time.sleep(1)
+                    continue
             print("send syn at accept to address: " + str(address))
             conn, addr = sock, address
             conn._send_to = address
@@ -113,6 +122,7 @@ class RDTSocket(UnreliableSocket):
         #############################################################################
         # TODO: YOUR CODE HERE                                                      #
         #############################################################################
+
         self.client = True
         self.setblocking(flag=False)
         handShake_1 = RDTSegment(syn=True, seq_num=self.Seq, ack_num=self.Ack)

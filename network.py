@@ -2,7 +2,7 @@ from socket import socket, AF_INET, SOCK_DGRAM, inet_aton, inet_ntoa
 import random, time
 import threading, queue
 from socketserver import ThreadingUDPServer
-
+from util.RDTSegment import RDTSegment
 lock = threading.Lock()
 
 
@@ -29,6 +29,7 @@ class Server(ThreadingUDPServer):
         self.buffer = 0
         self.delay = delay
         self.corrupt = corrupt
+        self.corrupt_rate = RDTSegment.SEGMENT_LEN*5*0.00001
 
     def verify_request(self, request, client_address):
         """
@@ -71,6 +72,7 @@ class Server(ThreadingUDPServer):
         time.sleep(random.random())
         """
 
+        # random delay
         time.sleep(random.random()/5)
 
         to = bytes_to_addr(data[:8])
