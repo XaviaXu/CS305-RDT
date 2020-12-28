@@ -377,7 +377,7 @@ class RDTSocket(UnreliableSocket):
                 self.sendto(finpkt.encode(), self._send_to)
                 timer.start()
                 while timer.running() and not timer.timeout():
-                    print("timer running")
+                    # print("timer running")
                     try:
                         data_raw, addr = self.recvfrom(100*RDTSegment.SEGMENT_LEN)
                     except BlockingIOError:
@@ -391,6 +391,7 @@ class RDTSocket(UnreliableSocket):
                     break
                 if timer.timeout():
                     timer.stop()
+                    print("timeout, retransmit third handshake")
         else:
             print("close actively")
             #首次提出关闭请求
@@ -419,8 +420,11 @@ class RDTSocket(UnreliableSocket):
                     timer.stop()
 
             self.sendto(finpkt4.encode(),self._send_to)
-            timer_close = Timer(2*self.TIME_LIMIT)
+            print("send fourth handshake")
+            # time.sleep(2)
+            timer_close = Timer(4*self.TIME_LIMIT)
             timer_close.start()
+
 
             while not timer_close.timeout():
                 try:
@@ -428,6 +432,7 @@ class RDTSocket(UnreliableSocket):
                 except BlockingIOError:
                     continue
                 self.sendto(finpkt4.encode(), self._send_to)
+                print("retransmit fourth handshake")
 
         #############################################################################
         #                             END OF YOUR CODE                              #
