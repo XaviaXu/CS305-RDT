@@ -52,9 +52,7 @@ class RDTSegment:
         self.seq_num = seq_num
         # SEQACK
         self.ack_num = ack_num
-        # SACK
-        self.SLE = 0
-        self.SRE = 0
+
         #Global
         self.gfin = gfin
 

@@ -177,7 +177,6 @@ class RDTSocket(UnreliableSocket):
         handShake_3 = RDTSegment(seq_num=self.Seq, ack_num=self.Ack, ack=True, syn=True)
         print("send handshake3. seq:" + str(self.Seq) + " ack:" + str(self.Ack))
         self.sendto(handShake_3.encode(), address)
-        # time.sleep(2)
 
         ## recv duplicate handshake2
         delay = Timer(4*self.TIME_LIMIT)
@@ -267,7 +266,7 @@ class RDTSocket(UnreliableSocket):
                     data.extend(queue_seg.payload)
                     # print(segment.payload.decode())
                     expected += 1
-                    print("add out-of-order pkt.seq:",queue_seg.seq_num,"expected",expected)
+                    print("add out-of-order pkt.seq:",queue_seg.seq_num,"expected",expected,"isFin",queue_seg.fin)
                     if queue_seg.fin:
                         ack.ack_num = expected
                         ack.seq_num = expected
@@ -337,15 +336,12 @@ class RDTSocket(UnreliableSocket):
             while nxt < lim:
                 # send pkt[nxt]
                 # if nxt == pkt_len - 1: FIN = 1, break
-                fin = False
-                if nxt == pkt_len - 1:
-                    fin = True
-                seq = RDTSegment(payload=pkt_list[nxt], seq_num=nxt, ack_num=nxt, fin=fin, len=len(pkt_list[nxt]))
+                seq = RDTSegment(payload=pkt_list[nxt], seq_num=nxt, ack_num=nxt, fin=pkt_len - 1 == nxt, len=len(pkt_list[nxt]))
                 # print(pkt_list[nxt].decode())
                 self.sendto(seq.encode(), self._send_to)
                 # tmp = seq.encode()
                 # detmp = RDTSegment.parse(tmp)
-                print("sender send, seq:", nxt, "base:", base, "lim:", lim)
+                print("sender send, seq:", nxt, "base:", base, "fin:", pkt_len - 1)
                 nxt += 1
 
             if not timer.running():
